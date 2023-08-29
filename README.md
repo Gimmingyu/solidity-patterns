@@ -125,3 +125,62 @@ contract StateMachine {
 
 ## Access Restriction
 
+스마트 컨트랙트는 블록체인에 배포되면 누구나 접근할 수 있다.
+
+공개적인 특성으로 인해 스마트 컨트랙트에 대한 완전한 정보 보호를 보장하는 것은 불가능에 가깝다. 
+
+모든 정보가 모두에게 표시되기때문에 누군가가 블록체인에서 컨트랙트 상태를 읽는 것을 막을수가 없다. 
+
+함수를 `private`으로 선언하는 선택지도 있지만, 그렇게 하면 모든 사람이 함수를 호출할 수 없게된다.
+
+이런 경우, `GuardCheck`, `StateMachine` 패턴과 함께 사용하면 좋다.
+
+> `private` 은 smart contract의 인터페이스로 비공개한다. 컨트랙트 내부에서만 사용한다. 상속 받은 컨트랙트에서도 사용 불가능하다.  
+> `external`은 smart contract의 인터페이스로 공개한다. 컨트랙트 내부에서 호출할 경우 this를 사용해서 접근해야 한다.  
+> `internal`은 smart contract의 인터페이스로 비공개한다. 컨트랙트 내부에서만 사용한다. 상속 받은 컨트랙트에서도 사용 가능하다.   
+> `public`은 smart contract의 인터페이스로 공개한다. 컨트랙트의 내부와 외부에서 모두 호출할 수 있다. 컨트랙트 내부에서 호출할 경우 this를 사용해서 접근해야 한다.  
+
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.0;
+
+contract AccessRestriction {
+    address public owner = msg.sender;
+    uint public lastOwnerChange = now;
+
+    modifier onlyBy(address _account) {
+        require(msg.sender == _account);
+        _;
+    }
+
+    modifier onlyAfter(uint _time) {
+        require(now >= _time);
+        _;
+    }
+
+    modifier costs(uint _amount) {
+        require(msg.value >= _amount);
+        _;
+        if (msg.value > _amount) {
+            msg.sender.transfer(msg.value - _amount);
+        }
+    }
+
+    function changeOwner(address _newOwner) public onlyBy(owner) {
+        owner = _newOwner;
+    }
+
+    function buyContract() public payable onlyAfter(lastOwnerChange + 4 weeks) costs(1 ether) {
+        owner = msg.sender;
+        lastOwnerChange = now;
+    }
+}
+```
+
+OpenZeppelin의 `Ownable`을 활용하면 더욱 간단하게 구현할 수 있다.
+
+
+
+
+
+
