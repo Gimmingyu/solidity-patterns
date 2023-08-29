@@ -45,3 +45,83 @@ contract GuardCheck {
 
 ## State Machine
 
+스마트 컨트랙트에서 서비스 로직을 구현하는 경우, 생애 주기를 관리해야 하는 경우가 있다. 
+
+시간에 따라서, 단계에 따라서 등 다양한 경우가 있을 수 있다.
+
+다음과 같은 경우에 상태를 가지도록 구현할 수 있다.
+
+- 스마트 컨트랙트는 수명 주기동안 여러 단계로 전환해야한다.
+- 스마트 컨트랙트의 기능은 특정 단계에서만 접근 가능해야한다. 
+- 사용자의 행동에 따라서 스마트 컨트랙트의 상태가 변경되어야 한다.
+
+Solidity 에서는 다양한 단계를 모델링하기 위해 `enum`을 사용할 수 있다.
+
+특정 단계에 대한 기능 액세스 제한은 뒤에서 다룰 `Access Restriction`을 활용하면 된다.
+
+위에서 다룬 `Guard Check` 패턴과 관련이 있으나 중구난방으로 진행하면 정신없으니 일단 `State Machine`의 코드를 보고 넘어가보자.
+
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.21;
+
+contract StateMachine {
+    // Stage에 대한 enum을 정의한다.
+    enum Stages {
+        AcceptingBlindBids,
+        RevealBids,
+        WinnerDetermined,
+        Finished
+    }
+
+    Stages public stage = Stages.AcceptingBlindBids;
+
+    uint public creationTime = now;
+
+    modifier atStage(Stages _stage) {
+        require(stage == _stage);
+        _;
+    }
+
+    modifier transitionAfter() {
+        _;
+        nextStage();
+    }
+
+    modifier timedTransitions() {
+        if (stage == Stages.AcceptingBlindBids && now >= creationTime + 6 days) {
+            nextStage();
+        }
+        if (stage == Stages.RevealBids && now >= creationTime + 10 days) {
+            nextStage();
+        }
+        _;
+    }
+
+    function bid() public payable timedTransitions atStage(Stages.AcceptingBlindBids) {
+        // Implement biding here
+    }
+
+    function reveal() public timedTransitions atStage(Stages.RevealBids) {
+        // Implement reveal of bids here
+    }
+
+    function claimGoods() public timedTransitions atStage(Stages.WinnerDetermined) transitionAfter {
+        // Implement handling of goods here
+    }
+
+    function cleanup() public atStage(Stages.Finished) {
+        // Implement cleanup of auction here
+    }
+
+    function nextStage() internal {
+        stage = Stages(uint(stage) + 1);
+    }
+}
+```
+
+위의 예시는 Stage에 따라 컨트랙트 자체의 상태가 바뀐다. 
+
+
+## Access Restriction
+
